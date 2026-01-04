@@ -1,5 +1,6 @@
 import express, { json } from "express";
 import cors from "cors";
+import db from "./db.js";
 
 const app = express();
 
@@ -13,23 +14,32 @@ app.use(cors(corsOptions));
 
 let blogPosts = [
   {
+    id: 1,
     title: "The Journey of a thoudsand Miles",
     content:
       "An exploration of the importance of taking the first step in any journey",
   },
   {
+    id: 2,
     title: "Understanding the Universe: A Neginner's Guide",
     content:
       "A simple introduction to the vastness and wonders of the universe.",
   },
   {
+    id: 3,
     title: "The Art of Cooking: Tips and Tricks",
     content: "Essential tips for becoming a better cook in your own kitchen",
   },
 ];
 
 app.get("/", (req, res) => {
-  res.json(blogPosts);
+  db.all("SELECT * FROM posts", [], (err, rows) => {
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    res.json(rows);
+  });
 });
 
 app.post("/", (req, res) => {
@@ -39,43 +49,65 @@ app.post("/", (req, res) => {
     return res.status(400).json({ message: "Missing data" });
   }
 
-  const newPost = {
-    title,
-    content,
-  };
+  db.run(
+    "INSERT INTO posts (title, content) VALUES (?, ?)",
+    [title, content],
+    function (err) {
+      if (err) {
+        return res.status(500).json(err);
+      }
 
-  blogPosts.push(newPost);
-
-  res.status(200).json(newPost);
+      res.status(201).json({
+        id: this.lastID,
+        title,
+        content,
+      });
+    }
+  );
 });
 
 app.delete("/", (req, res) => {
-  const { title } = req.body;
+  const { id } = req.body;
 
-  blogPosts = blogPosts.filter((post) => post.title !== title);
+  if (!id) {
+    return res.status(400).json({ message: "Missing Id" });
+  }
 
-  res.status(200).json(blogPosts);
+  db.run("DELETE FROM posts WHERE id = ?", [id], function (err) {
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    res.json({ deleted: this.changes });
+  });
 });
 
 app.put("/", (req, res) => {
-  const { oldTitleForPutMethod, title, content } = req.body;
+  const { id, title, content } = req.body;
 
-  if (!title || !content) {
+  if (!id || !title || !content) {
     return res.status(400).json({ message: "Missing Data" });
   }
 
-  const postIndex = blogPosts.findIndex(
-    (post) => post.title === oldTitleForPutMethod
+  db.run(
+    `
+    UPDATE posts
+    SET title = ?, content = ?
+    WHERE id = ?
+    `,
+    [title, content, id],
+    function (err) {
+      if (err) {
+        return res.status(500).json(err);
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      res.status(200).json({ id, title, content });
+    }
   );
-
-  if (postIndex === -1) {
-    return res.status(404).json({ message: "Post not found" });
-  }
-
-  blogPosts[postIndex].title = title;
-  blogPosts[postIndex].content = content;
-
-  res.status(200).json(blogPosts[postIndex]);
 });
 
 app.listen(3000, () => {

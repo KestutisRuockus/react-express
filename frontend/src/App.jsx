@@ -8,12 +8,11 @@ function App() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
-  const [oldTitleForPutMethod, setOldTitleForPutMethod] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
   const fetchPosts = async () => {
     const res = await axios.get("http://localhost:3000");
     setPosts(res.data);
-    console.log("fetch");
   };
 
   useEffect(() => {
@@ -32,16 +31,18 @@ function App() {
     setContent("");
   };
 
-  const deletePost = async (title) => {
-    await axios.delete("http://localhost:3000", { data: { title } });
+  const deletePost = async (id) => {
+    await axios.delete("http://localhost:3000", { data: { id } });
 
     await fetchPosts();
+    setTitle("");
+    setContent("");
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     await axios.put("http://localhost:3000", {
-      oldTitleForPutMethod,
+      id: editingId,
       title,
       content,
     });
@@ -51,13 +52,14 @@ function App() {
     setTitle("");
     setContent("");
     setIsUpdating(false);
+    setEditingId(null);
   };
 
-  const handleUpdatingStates = (title, conten) => {
+  const handleUpdatingStates = (post) => {
     setIsUpdating(true);
-    setOldTitleForPutMethod(title);
-    setTitle(title);
-    setContent(conten);
+    setEditingId(post.id);
+    setTitle(post.title);
+    setContent(post.content);
   };
 
   return (
@@ -85,13 +87,13 @@ function App() {
             placeholder="Content"
             className="border px-2"
           />
-          <button className="border">{isUpdating ? "Update" : "Submit"}</button>
+          <button className="border">{isUpdating ? "Update" : "Create"}</button>
         </form>
 
         <ul className="rounded-2xl shadow-lg p-5 bg-white space-y-3">
-          {posts.map((blog, index) => (
+          {posts.map((blog) => (
             <li
-              key={index}
+              key={blog.id}
               className="bg-sky-100 p-4 rounded-2xl transition-transform transform hover:scale-105"
             >
               <div className="flex justify-between w-lg">
@@ -101,15 +103,13 @@ function App() {
                 </div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => deletePost(blog.title)}
+                    onClick={() => deletePost(blog.id)}
                     className="border bg-red-300 w-20 h-10"
                   >
                     Delete
                   </button>
                   <button
-                    onClick={() =>
-                      handleUpdatingStates(blog.title, blog.content)
-                    }
+                    onClick={() => handleUpdatingStates(blog)}
                     className="border bg-green-300 w-20 h-10"
                   >
                     Edit
